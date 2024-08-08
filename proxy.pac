@@ -1,6 +1,7 @@
 function FindProxyForURL(url, host) {
   if (
     dnsDomainIs(host, ".youtube.com") ||
+    dnsDomainIs(host, ".ytimg.com") ||
     dnsDomainIs(host, ".googlevideo.com")
   ) {
     return "SOCKS5 localhost:1080; DIRECT";
