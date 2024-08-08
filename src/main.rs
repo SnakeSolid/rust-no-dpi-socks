@@ -131,7 +131,7 @@ async fn handle_client(rt: Arc<Runtime>, mut stream: TcpStream) -> Result<(), Bo
         let (in_result, out_result) = join!(copy_to, copy_from);
 
         info!(
-            "{} -> {}: {:?}, {:?}",
+            "{} -> {}: {}, {}",
             source_address,
             destination_address,
             bytes_string(in_result?, "in bytes: ", "error: "),
