@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 bytes = "1.7"
+clap = "4.5"
+clap_derive = "4.5"
 dns-lookup = "2.0"
 env_logger = "0.11"
 log = "0.4"

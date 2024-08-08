@@ -1,10 +1,14 @@
+mod arguments;
+mod context;
 mod data;
 mod request;
 
 use std::error::Error;
 use std::fmt::Display;
-use std::sync::Arc;
 
+use arguments::Arguments;
+use clap::Parser;
+use context::Context;
 use log::error;
 use log::info;
 use tokio::io::split;
@@ -16,7 +20,6 @@ use tokio::join;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::runtime::Builder;
-use tokio::runtime::Runtime;
 
 use data::AuthMethod;
 use request::AuthMethodsRequest;
@@ -40,22 +43,23 @@ macro_rules! log_error {
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
-    let rt = Builder::new_multi_thread().enable_io().build()?;
-    let rt = Arc::new(rt);
+    let arguments = Arguments::parse();
+    let runtime = Builder::new_multi_thread().enable_io().build()?;
+    let context = Context::create(arguments, runtime);
 
-    rt.block_on(async {
+    context.runtime().block_on(async {
         let listener = log_error!(
-            TcpListener::bind("127.0.0.1:1080").await,
+            TcpListener::bind((context.bind_address(), context.bind_port())).await,
             "Failed to bind address"
         );
 
         loop {
             match listener.accept().await {
                 Ok((socket, _)) => {
-                    let runtime = rt.clone();
+                    let cntxt = context.clone();
 
-                    rt.spawn(async move {
-                        match handle_client(runtime, socket).await {
+                    context.runtime().spawn(async move {
+                        match handle_client(cntxt, socket).await {
                             Ok(()) => {}
                             Err(error) => eprintln!("{}", error),
                         }
@@ -69,7 +73,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn handle_client(rt: Arc<Runtime>, mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
+async fn handle_client(context: Context, mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     let source_address = stream.peer_addr()?;
 
     info!("Connection from {}", source_address);
@@ -117,12 +121,13 @@ async fn handle_client(rt: Arc<Runtime>, mut stream: TcpStream) -> Result<(), Bo
             source_address, destination_address
         );
 
-        let copy_to = rt.spawn(async move {
-            copy_data(src_read, dst_write, 1024)
+        let n_bytes = context.n_bytes();
+        let copy_to = context.runtime().spawn(async move {
+            copy_data(src_read, dst_write, n_bytes)
                 .await
                 .map_err(|error| error.to_string())
         });
-        let copy_from = rt.spawn(async move {
+        let copy_from = context.runtime().spawn(async move {
             copy_data(dst_read, src_write, 0)
                 .await
                 .map_err(|error| error.to_string())
@@ -139,7 +144,18 @@ async fn handle_client(rt: Arc<Runtime>, mut stream: TcpStream) -> Result<(), Bo
         );
     } else {
         stream
-            .write_all(&[SOCKS5_VERSION, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00])
+            .write_all(&[
+                SOCKS5_VERSION,
+                0x04,
+                0x00,
+                0x01,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+            ])
             .await?;
     }
 
