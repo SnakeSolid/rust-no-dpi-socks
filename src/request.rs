@@ -71,7 +71,10 @@ impl CommandRequest {
                 let domain_name = unsafe { std::str::from_utf8_unchecked(&buffer[..n_chars]) };
                 let addresses = lookup_host(domain_name)?;
 
-                info!("Resolve domain name `{}` into: {:?}", domain_name, addresses);
+                info!(
+                    "Resolve domain name `{}` into: {:?}",
+                    domain_name, addresses
+                );
 
                 if let Some(address) = addresses.get(0) {
                     destination_address = Some(*address);
@@ -111,12 +114,12 @@ impl CommandRequest {
         self.version
     }
 
-    pub fn command(&self) -> &Command {
-        &self.command
+    pub fn command(&self) -> Command {
+        self.command
     }
 
-    pub fn address_type(&self) -> &AddressType {
-        &self.address_type
+    pub fn address_type(&self) -> AddressType {
+        self.address_type
     }
 
     pub fn destination(&self) -> Option<&SocketAddr> {

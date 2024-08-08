@@ -2,6 +2,7 @@ mod arguments;
 mod context;
 mod data;
 mod request;
+mod response;
 
 use std::error::Error;
 use std::fmt::Display;
@@ -24,6 +25,10 @@ use tokio::runtime::Builder;
 use data::AuthMethod;
 use request::AuthMethodsRequest;
 use request::CommandRequest;
+
+use crate::data::Command;
+use crate::response::AuthMethodResponse;
+use crate::response::CommandResponse;
 
 const SOCKS5_VERSION: u8 = 0x05;
 
@@ -87,31 +92,21 @@ async fn handle_client(context: Context, mut stream: TcpStream) -> Result<(), Bo
         return Ok(());
     }
 
-    stream
-        .write_all(&[SOCKS5_VERSION, AuthMethod::NoAuthenticationRequired.into()])
-        .await?;
+    let response = AuthMethodResponse::create(SOCKS5_VERSION, AuthMethod::NoAuthenticationRequired);
+    response.send(&mut stream).await?;
 
     let command_request = CommandRequest::read(&mut stream).await?;
 
-    if let Some(destination_address) = command_request.destination() {
+    if command_request.command() != Command::Connect {
+        let response = CommandResponse::command_not_supported(SOCKS5_VERSION);
+        response.send(&mut stream).await?;
+    } else if let Some(destination_address) = command_request.destination() {
         let destination = TcpStream::connect(destination_address).await?;
         destination.set_nodelay(true)?;
         stream.set_nodelay(true)?;
 
-        stream
-            .write_all(&[
-                SOCKS5_VERSION,
-                0x00,
-                0x00,
-                0x01,
-                0x00,
-                0x00,
-                0x00,
-                0x00,
-                0x00,
-                0x00,
-            ])
-            .await?;
+        let response = CommandResponse::success(SOCKS5_VERSION, &destination_address);
+        response.send(&mut stream).await?;
 
         let (src_read, src_write) = split(stream);
         let (dst_read, dst_write) = split(destination);
@@ -143,20 +138,8 @@ async fn handle_client(context: Context, mut stream: TcpStream) -> Result<(), Bo
             bytes_string(out_result?, "out bytes: ", "error: ")
         );
     } else {
-        stream
-            .write_all(&[
-                SOCKS5_VERSION,
-                0x04,
-                0x00,
-                0x01,
-                0x00,
-                0x00,
-                0x00,
-                0x00,
-                0x00,
-                0x00,
-            ])
-            .await?;
+        let response = CommandResponse::host_unreachable(SOCKS5_VERSION);
+        response.send(&mut stream).await?;
     }
 
     Ok(())

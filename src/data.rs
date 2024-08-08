@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum AuthMethod {
     NoAuthenticationRequired,
     GssApi,
@@ -47,7 +47,7 @@ impl Into<u8> for AuthMethod {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Command {
     Connect,
     Bind,
@@ -88,7 +88,7 @@ impl Into<u8> for Command {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum AddressType {
     IpV4Address,
     DomainName,
@@ -125,6 +125,71 @@ impl Into<u8> for AddressType {
             Self::DomainName => 0x03,
             Self::IpV6Address => 0x04,
             Self::Invalid { value } => value,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub enum CommandReply {
+    Success,
+    ServerFailure,
+    ConnectionNotAllowed,
+    NetworkUnreachable,
+    HostUnreachable,
+    ConnectionRefused,
+    TtlExpired,
+    CommandNotSupported,
+    AddressTypeNotSupported,
+    Unknown { value: u8 },
+}
+
+impl From<u8> for CommandReply {
+    fn from(value: u8) -> Self {
+        match value {
+            0x00 => Self::Success,
+            0x01 => Self::ServerFailure,
+            0x02 => Self::ConnectionNotAllowed,
+            0x03 => Self::NetworkUnreachable,
+            0x04 => Self::HostUnreachable,
+            0x05 => Self::ConnectionRefused,
+            0x06 => Self::TtlExpired,
+            0x07 => Self::CommandNotSupported,
+            0x08 => Self::AddressTypeNotSupported,
+            _ => Self::Unknown { value },
+        }
+    }
+}
+
+impl From<&u8> for CommandReply {
+    fn from(value: &u8) -> Self {
+        match value {
+            0x00 => Self::Success,
+            0x01 => Self::ServerFailure,
+            0x02 => Self::ConnectionNotAllowed,
+            0x03 => Self::NetworkUnreachable,
+            0x04 => Self::HostUnreachable,
+            0x05 => Self::ConnectionRefused,
+            0x06 => Self::TtlExpired,
+            0x07 => Self::CommandNotSupported,
+            0x08 => Self::AddressTypeNotSupported,
+            _ => Self::Unknown { value: *value },
+        }
+    }
+}
+
+impl Into<u8> for CommandReply {
+    fn into(self) -> u8 {
+        match self {
+            Self::Success => 0x00,
+            Self::ServerFailure => 0x01,
+            Self::ConnectionNotAllowed => 0x02,
+            Self::NetworkUnreachable => 0x03,
+            Self::HostUnreachable => 0x04,
+            Self::ConnectionRefused => 0x05,
+            Self::TtlExpired => 0x06,
+            Self::CommandNotSupported => 0x07,
+            Self::AddressTypeNotSupported => 0x08,
+            Self::Unknown { value } => value,
         }
     }
 }
