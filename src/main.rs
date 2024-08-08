@@ -58,6 +58,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             "Failed to bind address"
         );
 
+        if let Ok(bind_address) = listener.local_addr() {
+            info!("Listening on {}", bind_address);
+        } else {
+            info!("Listening...");
+        }
+
         loop {
             match listener.accept().await {
                 Ok((socket, _)) => {
