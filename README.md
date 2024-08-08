@@ -19,8 +19,9 @@ To start `no-dpi-socks` use following command:
 ./target/release/no-dpi-socks
 ```
 
-SOCKS5 server will run on `localhost:1080`, it can be used in any browser. To avoid transfer all data through proxy
-use `proxu.pac` file to configure browser to transfer only `*.googlevideo.com` traffic through this proxy.
+SOCKS5 server will run on `localhost:1080`, it can be used in any browser. To
+avoid transfer all data through proxy use `proxy.pac` file to configure
+browser to transfer only YouTube related traffic through this proxy.
 
 ## License
 [license]: #license
