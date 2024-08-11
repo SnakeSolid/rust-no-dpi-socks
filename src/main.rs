@@ -3,6 +3,7 @@ mod context;
 mod data;
 mod request;
 mod response;
+mod transfer;
 
 use std::error::Error;
 use std::fmt::Display;
@@ -13,10 +14,6 @@ use context::Context;
 use log::error;
 use log::info;
 use tokio::io::split;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
-use tokio::io::ReadHalf;
-use tokio::io::WriteHalf;
 use tokio::join;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
@@ -25,10 +22,12 @@ use tokio::runtime::Builder;
 use data::AuthMethod;
 use request::AuthMethodsRequest;
 use request::CommandRequest;
+use transfer::TransferError;
 
 use crate::data::Command;
 use crate::response::AuthMethodResponse;
 use crate::response::CommandResponse;
+use crate::transfer::copy_data;
 
 const SOCKS5_VERSION: u8 = 0x05;
 
@@ -123,16 +122,12 @@ async fn handle_client(context: Context, mut stream: TcpStream) -> Result<(), Bo
         );
 
         let n_bytes = context.n_bytes();
-        let copy_to = context.runtime().spawn(async move {
-            copy_data(src_read, dst_write, n_bytes)
-                .await
-                .map_err(|error| error.to_string())
-        });
-        let copy_from = context.runtime().spawn(async move {
-            copy_data(dst_read, src_write, 0)
-                .await
-                .map_err(|error| error.to_string())
-        });
+        let copy_to = context
+            .runtime()
+            .spawn(async move { copy_data(src_read, dst_write, n_bytes).await });
+        let copy_from = context
+            .runtime()
+            .spawn(async move { copy_data(dst_read, src_write, 0).await });
 
         let (in_result, out_result) = join!(copy_to, copy_from);
 
@@ -140,8 +135,8 @@ async fn handle_client(context: Context, mut stream: TcpStream) -> Result<(), Bo
             "{} -> {}: {}, {}",
             source_address,
             destination_address,
-            bytes_string(in_result?, "in bytes: ", "error: "),
-            bytes_string(out_result?, "out bytes: ", "error: ")
+            bytes_string(in_result?, "in bytes: "),
+            bytes_string(out_result?, "out bytes: ")
         );
     } else {
         let response = CommandResponse::host_unreachable(SOCKS5_VERSION);
@@ -151,48 +146,12 @@ async fn handle_client(context: Context, mut stream: TcpStream) -> Result<(), Bo
     Ok(())
 }
 
-fn bytes_string<T, E>(result: Result<T, E>, success: &str, failed: &str) -> String
+fn bytes_string<T>(result: Result<T, TransferError>, message: &str) -> String
 where
     T: Display,
-    E: Display,
 {
     match result {
-        Ok(value) => format!("{}{}", success, value),
-        Err(error) => format!("{}{}", failed, error),
-    }
-}
-
-async fn copy_data(
-    mut read: ReadHalf<TcpStream>,
-    mut write: WriteHalf<TcpStream>,
-    slow_bytes: usize,
-) -> Result<usize, Box<dyn Error>> {
-    let mut buffer = [0; 8192];
-    let mut count = 0;
-
-    for _ in 0..slow_bytes {
-        match read.read(&mut buffer[..1]).await? {
-            0 => return Ok(count),
-            length => {
-                write.write_all(&buffer[..length]).await?;
-
-                count += length;
-            }
-        }
-
-        write.flush().await?;
-    }
-
-    loop {
-        match read.read(&mut buffer).await? {
-            0 => return Ok(count),
-            length => {
-                write.write_all(&buffer[..length]).await?;
-
-                count += length;
-            }
-        }
-
-        write.flush().await?;
+        Ok(value) => format!("{}{}", message, value),
+        Err(error) => format!("{}{} (error: {})", message, error.count(), error.message()),
     }
 }
