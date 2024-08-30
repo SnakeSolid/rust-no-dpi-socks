@@ -121,13 +121,12 @@ async fn handle_client(context: Context, mut stream: TcpStream) -> Result<(), Bo
             source_address, destination_address
         );
 
-        let n_bytes = context.n_bytes();
         let copy_to = context
             .runtime()
-            .spawn(async move { copy_data(src_read, dst_write, n_bytes).await });
+            .spawn(async move { copy_data(src_read, dst_write, true).await });
         let copy_from = context
             .runtime()
-            .spawn(async move { copy_data(dst_read, src_write, 0).await });
+            .spawn(async move { copy_data(dst_read, src_write, false).await });
 
         let (in_result, out_result) = join!(copy_to, copy_from);
 

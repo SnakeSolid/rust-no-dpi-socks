@@ -34,32 +34,27 @@ impl TransferError {
 pub async fn copy_data(
     mut read: ReadHalf<TcpStream>,
     mut write: WriteHalf<TcpStream>,
-    slow_bytes: usize,
+    slow: bool,
 ) -> Result<usize, TransferError> {
     let mut buffer = [0; 8192];
     let mut count = 0;
 
-    for _ in 0..slow_bytes {
-        match read
-            .read(&mut buffer[..1])
-            .await
-            .map_err(|error| TransferError::new(count, error))?
-        {
-            0 => return Ok(count),
-            length => {
-                write
-                    .write_all(&buffer[..length])
-                    .await
-                    .map_err(|error| TransferError::new(count, error))?;
+    let length = read
+        .read(&mut buffer)
+        .await
+        .map_err(|error| TransferError::new(count, error))?;
+    let size = match slow {
+        true => 1,
+        false => length,
+    };
 
-                count += length;
-            }
-        }
-
+    for chunk in buffer[..length].chunks(size) {
         write
-            .flush()
+            .write_all(chunk)
             .await
             .map_err(|error| TransferError::new(count, error))?;
+
+        count += chunk.len();
     }
 
     loop {
