@@ -48,6 +48,10 @@ pub async fn copy_data(
         false => length,
     };
 
+    if length == 0 {
+        return Ok(0);
+    }
+
     for chunk in buffer[..length].chunks(size) {
         write
             .write_all(chunk)
