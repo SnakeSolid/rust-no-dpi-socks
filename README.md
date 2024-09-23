@@ -1,9 +1,8 @@
 # No DPI SOCKS
 
-A simple SOCKS5 proxy designed to bypass YouTube slowdown by mimicking HTTP
-traffic patterns. The server sends first package byte by byte, making it
-difficult for Deep Packet Inspection (DPI) to detect the nature of the
-connection.
+A simple SOCKS5 proxy designed to bypass YouTube slowdown. The server sends
+first package byte by byte, making it difficult for Deep Packet Inspection
+(DPI) to detect the nature of the connection.
 
 ## Build
 
